@@ -1,6 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
+from fastapi.responses import RedirectResponse
+from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from database import Base, engine, get_db
+from models import URL
 from shortener import generate_code
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
@@ -12,6 +18,18 @@ def root():
     return {"message": "URL Shortener"}
 
 @app.post("/shorten")
-def shorten_url(data: URLRequest):
+def shorten_url(data: URLRequest, db: Session = Depends(get_db)):
     code = generate_code()
+    entry = URL(short_code=code, original_url=data.url)
+    db.add(entry)
+    db.commit()
     return {"original": data.url, "short": f"http://localhost:8000/{code}"}
+
+@app.get("/{code}")
+def redirect(code: str, db: Session = Depends(get_db)):
+    entry = db.query(URL).filter(URL.short_code == code).first()
+    if not entry:
+        return {"error": "not found"}
+    entry.clicks += 1
+    db.commit()
+    return RedirectResponse(entry.original_url)
