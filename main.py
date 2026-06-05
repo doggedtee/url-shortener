@@ -31,3 +31,14 @@ def redirect(code: str, db: Session = Depends(get_db)):
     entry.clicks += 1
     db.commit()
     return RedirectResponse(entry.original_url)
+
+@app.get("/{code}/stats")
+def get_stats(code: str, db: Session = Depends(get_db)):
+    entry = db.query(URL).filter(URL.short_code == code).first()
+    if not entry:
+        return {"error": "not found"}
+    return {
+        "short_code": entry.short_code,
+        "original_url": entry.original_url,
+        "clicks": entry.clicks
+    }
