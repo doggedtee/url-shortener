@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from schemas import URLRequest
@@ -27,7 +27,7 @@ def shorten_url(data: URLRequest, db: Session = Depends(get_db)):
 def redirect(code: str, db: Session = Depends(get_db)):
     entry = db.query(URL).filter(URL.short_code == code).first()
     if not entry:
-        return {"error": "not found"}
+        raise HTTPException(status_code=404, detail="Short code not found")
     entry.clicks += 1
     db.commit()
     return RedirectResponse(entry.original_url)
@@ -36,7 +36,7 @@ def redirect(code: str, db: Session = Depends(get_db)):
 def get_stats(code: str, db: Session = Depends(get_db)):
     entry = db.query(URL).filter(URL.short_code == code).first()
     if not entry:
-        return {"error": "not found"}
+        raise HTTPException(status_code=404, detail="Short code not found")
     return {
         "short_code": entry.short_code,
         "original_url": entry.original_url,
