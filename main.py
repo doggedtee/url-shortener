@@ -5,6 +5,7 @@ from schemas import URLRequest
 from database import Base, engine, get_db
 from models import URL
 from shortener import generate_code
+from datetime import datetime, timezone, timedelta
 
 Base.metadata.create_all(bind=engine)
 
@@ -17,7 +18,10 @@ def root():
 @app.post("/shorten")
 def shorten_url(data: URLRequest, db: Session = Depends(get_db)):
     code = generate_code()
-    entry = URL(short_code=code, original_url=str(data.url))
+    expires_at = None
+    if data.expires_in_days:
+        expires_at = datetime.now(timezone.utc) + timedelta(days=data.expires_in_days)
+    entry = URL(short_code=code, original_url=str(data.url), expires_at=expires_at)
 
     db.add(entry)
     db.commit()
@@ -28,6 +32,8 @@ def redirect(code: str, db: Session = Depends(get_db)):
     entry = db.query(URL).filter(URL.short_code == code).first()
     if not entry:
         raise HTTPException(status_code=404, detail="Short code not found")
+    if entry.expires_at and entry.expires_at < datetime.now():
+        raise HTTPException(status_code=410, detail="Link has expired")
     entry.clicks += 1
     db.commit()
     return RedirectResponse(entry.original_url)
