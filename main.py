@@ -7,6 +7,7 @@ from models import URL
 from shortener import generate_code
 from datetime import datetime, timezone, timedelta
 from cache import r
+from tasks import check_url
 
 Base.metadata.create_all(bind=engine)
 
@@ -23,9 +24,9 @@ def shorten_url(data: URLRequest, db: Session = Depends(get_db)):
     if data.expires_in_days:
         expires_at = datetime.now(timezone.utc) + timedelta(days=data.expires_in_days)
     entry = URL(short_code=code, original_url=str(data.url), expires_at=expires_at)
-
     db.add(entry)
     db.commit()
+    check_url.delay(str(data.url), code)
     return {"original": data.url, "short": f"http://localhost:8000/{code}"}
 
 @app.get("/{code}")
