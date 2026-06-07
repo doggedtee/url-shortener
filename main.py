@@ -6,6 +6,7 @@ from database import Base, engine, get_db
 from models import URL
 from shortener import generate_code
 from datetime import datetime, timezone, timedelta
+from cache import r
 
 Base.metadata.create_all(bind=engine)
 
@@ -29,6 +30,10 @@ def shorten_url(data: URLRequest, db: Session = Depends(get_db)):
 
 @app.get("/{code}")
 def redirect(code: str, db: Session = Depends(get_db)):
+    cached = r.get(code)
+    if cached:
+        return RedirectResponse(cached)
+    
     entry = db.query(URL).filter(URL.short_code == code).first()
     if not entry:
         raise HTTPException(status_code=404, detail="Short code not found")
@@ -36,6 +41,7 @@ def redirect(code: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=410, detail="Link has expired")
     entry.clicks += 1
     db.commit()
+    r.set(code, entry.original_url)
     return RedirectResponse(entry.original_url)
 
 @app.get("/{code}/stats")
