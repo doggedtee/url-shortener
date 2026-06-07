@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime
+from sqlalchemy import Column, String, Integer, DateTime, Boolean
 from database import Base
 
 class URL(Base):
@@ -9,3 +9,4 @@ class URL(Base):
     original_url = Column(String)
     clicks = Column(Integer, default=0)
     expires_at = Column(DateTime, nullable=True)
+    is_reachable= Column(Boolean, default=True)

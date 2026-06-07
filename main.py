@@ -53,5 +53,6 @@ def get_stats(code: str, db: Session = Depends(get_db)):
     return {
         "short_code": entry.short_code,
         "original_url": entry.original_url,
-        "clicks": entry.clicks
+        "clicks": entry.clicks,
+        "is_reachable": entry.is_reachable
     }
