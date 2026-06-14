@@ -14,6 +14,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from fastapi import Request
+from sqlalchemy import text
 
 Base.metadata.create_all(bind=engine)
 
@@ -47,6 +48,26 @@ def shorten_url(request: Request, data: URLRequest, db: Session = Depends(get_db
     check_url.delay(str(data.url), code)
     logger.info(f"Created short URL: {code} -> {data.url}")
     return {"original": data.url, "short": f"http://localhost:8000/{code}"}
+
+@app.get("/health")
+def health(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+        db_status = "connected"
+    except Exception:
+        db_status = "disconnected"
+
+    try:
+        r.ping()
+        redis_status = "connected"
+    except Exception:
+        redis_status = "disconnected"
+
+    return {
+        "status": "ok",
+        "database": db_status,
+        "redis": redis_status
+    }
 
 @app.get("/{code}")
 def redirect(code: str, db: Session = Depends(get_db)):
