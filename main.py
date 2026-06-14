@@ -8,6 +8,7 @@ from shortener import generate_code
 from datetime import datetime, timezone, timedelta
 from cache import r
 from tasks import check_url
+from logger import logger
 
 Base.metadata.create_all(bind=engine)
 
@@ -27,22 +28,27 @@ def shorten_url(data: URLRequest, db: Session = Depends(get_db)):
     db.add(entry)
     db.commit()
     check_url.delay(str(data.url), code)
+    logger.info(f"Created short URL: {code} -> {data.url}")
     return {"original": data.url, "short": f"http://localhost:8000/{code}"}
 
 @app.get("/{code}")
 def redirect(code: str, db: Session = Depends(get_db)):
     cached = r.get(code)
     if cached:
+        logger.info(f"Cache hit: {code}")
         return RedirectResponse(cached)
     
     entry = db.query(URL).filter(URL.short_code == code).first()
     if not entry:
+        logger.warning(f"Short code not found: {code}")
         raise HTTPException(status_code=404, detail="Short code not found")
     if entry.expires_at and entry.expires_at < datetime.now():
+        logger.warning(f"Expired link accessed: {code}")
         raise HTTPException(status_code=410, detail="Link has expired")
     entry.clicks += 1
     db.commit()
     r.set(code, entry.original_url)
+    logger.info(f"Redirect: {code} -> {entry.original_url}")
     return RedirectResponse(entry.original_url)
 
 @app.get("/{code}/stats")
