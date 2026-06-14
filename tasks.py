@@ -3,7 +3,14 @@ import httpx
 from database import SessionLocal
 from models import URL
 
-celery = Celery("tasks", broker="redis://localhost:6379/0")
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+REDIS_URL = os.getenv("REDIS_URL")
+
+celery = Celery("tasks", broker=REDIS_URL)
 
 @celery.task
 def check_url(url: str, short_code: str):
